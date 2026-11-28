@@ -178,3 +178,26 @@ def test_audio_octave_jump_is_followed_and_a_held_note_is_not_split():
     assert (np.abs(1200 * np.log2(hz[after] / 440)) < 60).mean() > 0.98      # the leap is accepted: no lock on the old octave
     first = t[(t > 1.0) & v & (np.abs(1200 * np.log2(np.maximum(hz, 1) / 440)) < 60)][0]
     assert first - 1.0 < 0.2                                                  # within 200 ms of the leap
+
+
+def test_skip_lets_audio_go_by_and_the_frames_after_keep_their_times():
+    """LiveRunner skips chunks for the display tracker when it is behind: no frames for the windows that touch the
+    skipped audio, the next ones on the same 5.33 ms grid as without the skip, voiced again once a window is full."""
+    x = tone(220.0, 1.5)
+    whole = run(FastTracker(), x)
+    tr = FastTracker()
+    a, b = int(0.5 * SR), int(0.7 * SR)
+    fr = []
+    for i in range(0, a, 256):
+        fr += tr.push(x[i:i + 256], SR)
+    tr.skip(b - a)
+    for i in range(b, len(x), 256):
+        fr += tr.push(x[i:i + 256], SR)
+    fr += tr.flush()
+    window_s = 2560 / SR
+    times = np.array([f.t for f in fr])
+    assert not np.any((times > a / SR + 1e-9) & (times - window_s / 2 < b / SR - 1e-9))   # nothing touches the gap
+    grid = {round(f.t, 6) for f in whole}
+    assert {round(t, 6) for t in times} <= grid                                         # same times as unskipped
+    after = [f for f in fr if f.t - window_s / 2 >= b / SR]
+    assert after and voiced(after)[5:].all() and np.median([f.hz for f in after]) == pytest.approx(220.0, abs=1.0)

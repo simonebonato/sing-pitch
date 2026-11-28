@@ -135,3 +135,44 @@ def test_accurate_draws_the_neural_dots(qtbot, tmp_path):
     sing_a_take(qtbot, win)
     assert {b for b in win._band if b is not None} == {Band.YELLOW}
     assert not made
+
+
+class SlowTracker(InTuneTracker):
+    """A display tracker much slower than the audio (20 ms of work per 5.3 ms chunk): LiveRunner must let it skip."""
+
+    def __init__(self):
+        super().__init__()
+        self.skipped = 0
+
+    def push(self, chunk, sample_rate):
+        import time
+        time.sleep(0.02)
+        return super().push(chunk, sample_rate)
+
+    def skip(self, n):
+        self._n += n // 256
+        self.skipped += n
+
+
+class BrokenTracker(InTuneTracker):
+    def push(self, chunk, sample_rate):
+        raise RuntimeError("display tracker bug")
+
+
+def test_a_display_tracker_that_falls_behind_skips_and_the_saved_take_does_not_change(tracker, tmp_path):
+    """Measured 2026-11-27 (Windows laptop, Fast): on the worker beside the neural tracker the dots fell 4.1 s behind
+    in 30 s. The display tracker has its own thread and lets chunks go by while more than DISPLAY_BACKLOG_CHUNKS wait."""
+    _, alone = run(tracker, tmp_path / "alone", None)
+    slow = SlowTracker()
+    runner, record = run(tracker, tmp_path / "slow", slow)
+    assert slow.skipped > 0 and runner.display_skipped == slow.skipped
+    assert runner.drain_display()                                         # still dots, from what it did track
+    assert record.summary.n_scored == alone.summary.n_scored              # the neural Take, every frame of it
+    assert record.summary.median_abs_cents == pytest.approx(alone.summary.median_abs_cents)
+
+
+def test_a_failing_display_tracker_ends_the_dots_not_the_take(tracker, tmp_path):
+    runner, record = run(tracker, tmp_path, BrokenTracker())
+    assert isinstance(runner.display_error, RuntimeError) and runner.display_error.__traceback__ is None
+    assert runner.drain_display() == []
+    assert record.summary.tendency == "sharp"                             # saved from the neural tracker as always

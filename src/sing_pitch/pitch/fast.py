@@ -100,6 +100,21 @@ class FastTracker:
             self._start = self._next
         return out
 
+    def skip(self, n: int) -> None:
+        """Let n samples go by unheard (the app is behind, see LiveRunner): no frames for windows that touch them, the
+        state moves on as through that many frames of silence, and the frames after keep their times."""
+        self._total += int(n)
+        frames = max(0, -(-(self._total - self._next) // HOP))      # windows starting before the new audio
+        for _ in range(frames):
+            if self._prev is not None:
+                self._prev = (self._prev[0], self._prev[1] + 1)
+            self._voiced = False
+            if self.K:
+                self._consensus(0.0, False)
+        self._next += frames * HOP
+        self._buf = np.zeros(0)
+        self._start = self._total
+
     def flush(self) -> list[PitchFrame]:
         """Frames whose centre is still inside the audio, using the missing tail as silence. Ends the stream (state is reset)."""
         out = []

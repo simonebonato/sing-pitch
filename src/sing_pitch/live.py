@@ -25,6 +25,7 @@ FRAME_S = 0.016              # one tracker frame
 MIN_TAKE_SCORED_S = 3.0      # a Take closed by a jump with less scored singing than this is discarded
 MIN_PASS_FRACTION = 0.5      # a Pass Take is kept when it scored this share of its Section's singable time...
 MIN_PASS_SCORED_S = 0.3      # ...but at least this much, and never more is asked than MIN_TAKE_SCORED_S
+DISPLAY_BACKLOG_CHUNKS = 8   # mic chunks waiting (~43 ms at 256 frames, 48 kHz) past which the display tracker skips
 
 
 def pass_tag(loop, pass_index: int) -> PassTag:
@@ -189,6 +190,10 @@ class LiveRunner:
         self._display_tracker = display_tracker
         self._display: queue.SimpleQueue = queue.SimpleQueue()
         self._display_gate = VoicingGate(config)
+        self._display_in: queue.SimpleQueue = queue.SimpleQueue()      # chunks for the display thread
+        self._display_thread: threading.Thread | None = None
+        self.display_skipped = 0                  # mic samples the display tracker let go by (it was behind)
+        self.display_error: Exception | None = None   # what ended the display thread's dots, if anything
         self._loop_latency = loop_latency
         self._config = config                     # every Take of the run is scored with it (Tolerance, Timing window)
         self._tracker = tracker
@@ -232,6 +237,8 @@ class LiveRunner:
         if self._display_tracker is not None:
             self._display_tracker.reset()         # its frame times count from the same first sample
             self._display_gate = VoicingGate(self._config)
+            self.display_skipped, self.display_error = 0, None
+            self._display_in = queue.SimpleQueue()
         if self._backing is None:
             def on_chunk(chunk: np.ndarray) -> None:      # PortAudio thread
                 self._received += len(chunk)
@@ -268,6 +275,9 @@ class LiveRunner:
             raise
         self._thread = threading.Thread(target=self._work, name="sing-pitch-tracker", daemon=True)
         self._thread.start()          # chunks that arrived meanwhile wait in the queue
+        if self._display_tracker is not None:
+            self._display_thread = threading.Thread(target=self._work_display, name="sing-pitch-display", daemon=True)
+            self._display_thread.start()
 
     def _on_event(self, event) -> None:       # audio thread: only hand over, in order with the chunks
         if event.kind in ("jumped", "loop_ended"):
@@ -298,10 +308,9 @@ class LiveRunner:
                 if isinstance(chunk, tuple):
                     self._control(*chunk)
                 else:
-                    self._scores.put(self._route(self._tracker.push(chunk, self._source.sample_rate)))
                     if self._display_tracker is not None:
-                        self._display.put(self._score_display(
-                            self._display_tracker.push(chunk, self._source.sample_rate)))
+                        self._display_in.put(chunk)       # tracked meanwhile, on the display thread
+                    self._scores.put(self._route(self._tracker.push(chunk, self._source.sample_rate)))
             except Exception as exc:
                 self._error = exc
 
@@ -339,6 +348,28 @@ class LiveRunner:
             host, tag, pct = self._cuts.pop(0)
             self._next_take(tag, pct, clock.voice_at_host(host), clock.plot_of_host(host))
         return scores + self._take.push_frames(frames)
+
+    def _work_display(self) -> None:
+        """The display tracker's own thread, beside the worker: the neural tracker's inference runs without the GIL
+        (onnxruntime), so the two overlap instead of adding up. Measured 2026-11-27 on a Windows laptop in test mode
+        with Fast, both on the worker: neural push 38 % of real time, its scoring 21 %, Fast 30 % (8 % computing, 22 %
+        waiting for the GIL), ~90 % in all; any hiccup and the queue grew, the dots 4.1 s late after 30 s.
+
+        A chunk is skipped (the tracker lets it go by) while more than DISPLAY_BACKLOG_CHUNKS wait: dots that late are
+        no use, and catching up must not cost the next ones. A failure ends the dots (display_error), never the Take:
+        the saved Take comes from the neural tracker alone."""
+        while (chunk := self._display_in.get()) is not None:
+            if self.display_error is not None:
+                continue
+            try:
+                if self._display_in.qsize() > DISPLAY_BACKLOG_CHUNKS and hasattr(self._display_tracker, "skip"):
+                    self._display_tracker.skip(len(chunk))
+                    self.display_skipped += len(chunk)
+                else:
+                    frames = self._display_tracker.push(chunk, self._source.sample_rate)
+                    self._display.put(self._score_display(frames))
+            except Exception as exc:
+                self.display_error = exc.with_traceback(None)   # no frames of this runner kept: no cycle (_pop_error)
 
     def _score_display(self, frames: list[PitchFrame]) -> list[FrameScore]:
         """The display tracker's frames as dots: on the running Take's song clock and Section, at the Octave and
@@ -518,6 +549,10 @@ class LiveRunner:
             finally:
                 self._chunks.put(None)
                 self._thread.join()
+                if self._display_thread is not None:      # after the worker: it hands over no more chunks
+                    self._display_in.put(None)
+                    self._display_thread.join()
+                    self._display_thread = None
         if self._error is not None:
             raise self._pop_error()
         record = self._with_settings(self._take.finish())
