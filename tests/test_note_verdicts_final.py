@@ -6,6 +6,7 @@ import numpy as np
 import soundfile as sf
 from audio import SR, harmonic, quiet
 from frames import hz_at
+from app_speed import APP_SPEED
 from qa_helpers import LEAD_S, REF_HOP, configure_latency
 
 from sing_pitch.config import ScoreConfig
@@ -61,7 +62,7 @@ def sharp_tail_song(home):
 def test_the_live_bar_colours_are_the_summary_verdicts(tmp_path):
     sharp_tail_song(tmp_path)
     configure_latency(tmp_path, 0.12)
-    with QA(tmp_path, mic="echo", time_scale=4.0) as qa:
+    with QA(tmp_path, mic="echo", time_scale=APP_SPEED) as qa:
         w = qa.window
         for name, value in (("reference_box", "Melody"), ("notes_box", True), ("guide_box", True),
                             ("guide_slider", 100), ("backing_slider", 0)):

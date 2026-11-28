@@ -40,14 +40,16 @@ class LinearClock:
 
 
 class HostClock:
-    """The clock PortAudio stamps every callback with (time_info) and reads in Pa_GetStreamTime: on macOS the host
-    time (mach_absolute_time), the same clock as time.monotonic() (measured 2026-11-25 on CoreAudio: Pa_GetStreamTime -
-    time.monotonic() = -0.4 us; a callback's currentTime - time.monotonic() read in it = -0.09 ms median). Input and
-    output streams of one process share it, so a mic sample and a frame in the headphones can be compared on it."""
+    """The clock PortAudio stamps every callback with (time_info) and reads in Pa_GetStreamTime. Input and output
+    streams of one process share it, so a mic sample and a frame in the headphones can be compared on it.
+    time.perf_counter() is that clock on both systems: on macOS it is mach_absolute_time, the same clock as
+    time.monotonic() (measured 2026-11-25 on CoreAudio: Pa_GetStreamTime - time.monotonic() = -0.4 us); on Windows it
+    is QueryPerformanceCounter (measured 2026-11-26 on WASAPI: Pa_GetStreamTime - perf_counter = -0.7 us), while
+    time.monotonic() there is GetTickCount64, which ticks every 15.6 ms. tests/test_host_clock.py checks both."""
 
     @staticmethod
     def now() -> float:
-        return time.monotonic()
+        return time.perf_counter()
 
 
 PORTAUDIO = HostClock()

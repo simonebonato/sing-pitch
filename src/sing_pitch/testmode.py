@@ -331,7 +331,7 @@ class FakeAudioHub:
         self.lost_out_steps = self.lost_in_steps = 0     # steps the faults cost (for tests and the QA report)
         self._cond = threading.Condition()   # guards everything below; held while a step runs
         self._frame = 0
-        self._pace = (time.monotonic(), 0)   # (wall clock, hub frame) the pace counts from
+        self._pace = (time.perf_counter(), 0)   # (wall clock, hub frame) the pace counts from
         self._late_s = 0.0                   # how late the step being run is (app seconds)
         self._outputs: list[FakeOutputStream] = []
         self._inputs: list[FakeMic] = []
@@ -358,7 +358,7 @@ class FakeAudioHub:
         being played by the wall clock, kept within the last step played."""
         frame = self._frame
         t0, f0 = self._pace
-        due = f0 + (time.monotonic() - t0) * self.time_scale * self.sample_rate
+        due = f0 + (time.perf_counter() - t0) * self.time_scale * self.sample_rate
         return min(max(due, frame - self.step), frame) / self.sample_rate
 
     def output_frame_at(self, host_s: float, stream: FakeOutputStream | None = None) -> float | None:
@@ -454,22 +454,22 @@ class FakeAudioHub:
         self._frame = frame + n
 
     def _run(self) -> None:
-        t0, f0 = time.monotonic(), 0
+        t0, f0 = time.perf_counter(), 0
         self._pace = (t0, f0)
         while True:
             with self._cond:
                 if self._held and not self._closed:
                     while self._held and not self._closed:
                         self._cond.wait()
-                    t0, f0 = time.monotonic(), self._frame       # the clock restarts where it was stopped
+                    t0, f0 = time.perf_counter(), self._frame       # the clock restarts where it was stopped
                     self._pace = (t0, f0)
                 if self._closed:
                     return
                 due = t0 + (self._frame - f0) / self.sample_rate / self.time_scale
-                self._late_s = max(0.0, time.monotonic() - due) * self.time_scale
+                self._late_s = max(0.0, time.perf_counter() - due) * self.time_scale
                 self._step()
                 due = t0 + (self._frame - f0) / self.sample_rate / self.time_scale
-            wait = due - time.monotonic()
+            wait = due - time.perf_counter()
             if wait > 0:
                 time.sleep(wait)
 
@@ -536,9 +536,35 @@ def window_kwargs(hub: FakeAudioHub, mic: FakeMicFactory | None, fake_output: bo
     return kwargs
 
 
+def hold_the_gil(ms: float) -> None:
+    """Keep the GIL for `ms` of wall time, as a slow C++ paint does: no other Python thread runs meanwhile. With the C
+    library's usleep where there is one (macOS, Linux: ctypes.PyDLL keeps the GIL through the call, as before);
+    without one (Windows has no libc to load), a pure-Python wait with the switch interval raised past it, so CPython
+    never hands the GIL over (measured on Windows: 150 ms held, 10 of 10)."""
+    usleep = _libc_usleep()
+    if usleep is not None:
+        usleep(int(ms * 1000))
+        return
+    interval = sys.getswitchinterval()
+    sys.setswitchinterval(max(interval, ms / 1000 + 1.0))
+    try:
+        end = time.perf_counter() + ms / 1000
+        while time.perf_counter() < end:
+            pass
+    finally:
+        sys.setswitchinterval(interval)
+
+
+def _libc_usleep():
+    try:
+        return ctypes.PyDLL(None).usleep
+    except (OSError, TypeError, AttributeError):    # no C library to load (Windows), or no usleep in it
+        return None
+
+
 class UiStall:
     """Blocks the UI thread for `ms` every `every_s` app seconds (Faults.ui_stall_*): holding the GIL, as a slow
-    C++ paint does (ctypes.PyDLL keeps the GIL through the call), or sleeping. Keep it alive as long as it should run;
+    C++ paint does (hold_the_gil), or sleeping. Keep it alive as long as it should run;
     stop() ends it. Built on the UI thread after the QApplication."""
 
     def __init__(self, hub: FakeAudioHub, faults: Faults):
@@ -559,7 +585,7 @@ class UiStall:
         self._next = self._hub.now_s + self._every
         self.stalls += 1
         if self._gil:
-            ctypes.PyDLL(None).usleep(int(self._ms * 1000))
+            hold_the_gil(self._ms)
         else:
             time.sleep(self._ms / 1000)
 

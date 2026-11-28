@@ -1,5 +1,6 @@
 """The status line says "Paused" while the song is paused (it said "Singing..."), and in a loop the Speed label says a
 new Speed comes from the next Pass while the old one still plays. Real Transport, QA driver."""
+from app_speed import APP_SPEED
 from pause_fuzz import build_song
 
 from sing_pitch.qa import QA
@@ -8,7 +9,7 @@ from sing_pitch.ui.main_window import PAUSED_TEXT
 
 def test_the_status_line_says_paused_and_goes_back_to_singing(tmp_path):
     build_song(tmp_path)
-    with QA(tmp_path, mic="echo", time_scale=4.0) as qa:
+    with QA(tmp_path, mic="echo", time_scale=APP_SPEED) as qa:
         qa.set("reference_box", "Melody")
         qa.start_take(at_s=2)
         qa.wait(0.5)
@@ -25,7 +26,7 @@ def test_the_status_line_says_paused_and_goes_back_to_singing(tmp_path):
 
 def test_in_a_loop_the_speed_label_says_the_new_speed_comes_from_the_next_pass(tmp_path):
     build_song(tmp_path)
-    with QA(tmp_path, mic="echo", time_scale=4.0) as qa:
+    with QA(tmp_path, mic="echo", time_scale=APP_SPEED) as qa:
         qa.set("reference_box", "Melody")
         qa.mark_section(10.0, 14.0)
         qa.set("loop_box", True)
@@ -42,7 +43,7 @@ def test_in_a_loop_the_speed_label_says_the_new_speed_comes_from_the_next_pass(t
 def test_a_jumped_message_that_expires_while_paused_leaves_paused_not_singing(tmp_path):
     """Merge of #70 (Jumped message expires to Singing...) and #72 (Paused text)."""
     build_song(tmp_path)
-    with QA(tmp_path, mic="echo", time_scale=4.0) as qa:
+    with QA(tmp_path, mic="echo", time_scale=APP_SPEED) as qa:
         qa.set("reference_box", "Melody")
         qa.start_take(at_s=2)
         qa.wait(0.5)

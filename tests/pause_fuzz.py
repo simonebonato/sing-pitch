@@ -32,13 +32,14 @@ from pathlib import Path
 
 import numpy as np
 import soundfile as sf
+from app_speed import APP_SPEED
 from qa_helpers import NOTES, configure_latency, singing_song
 
 from PySide6 import QtCore
 
 from sing_pitch.qa import QA
 
-SCALE = 4.0
+SCALE = APP_SPEED
 SR = 48000
 STEP = 256             # frames the fake audio hub plays at a time
 FAULTS = "underflow=2.3:50,overflow=2.9:40,drift=300,ui_stall=1.7:80"     # a rough device, for the runs with faults

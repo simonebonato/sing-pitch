@@ -247,7 +247,7 @@ def test_a_replay_of_a_paused_take_stands_still_through_the_pause_and_goes_on(qt
     win._timer.stop()
 
     def at(voice_t):                                             # the replay's clock reads voice_t (first frame at 0)
-        win._replay_started = time.monotonic() - voice_t
+        win._replay_started = time.perf_counter() - voice_t
         win.tick()
         return world.now
 

@@ -7,6 +7,7 @@ render frontier at the first mic chunk lies anywhere within a block (#62's phase
 time and the phase is always 0."""
 import numpy as np
 import pytest
+from app_speed import APP_SPEED
 from qa_helpers import NOTES, configure_latency, singing_song
 
 from sing_pitch import audio_health
@@ -14,7 +15,7 @@ from sing_pitch.qa import QA
 from sing_pitch.settings import Settings
 from sing_pitch.testmode import FAKE_OUTPUT
 
-SCALE = 4.0
+SCALE = APP_SPEED
 LATENCY = 0.12
 
 

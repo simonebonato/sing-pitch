@@ -1,10 +1,11 @@
 import gc
-import os
 import threading
 
 import pytest
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")  # headless Qt; must be set before any Qt import
+from sing_pitch.offscreen import use_offscreen
+
+use_offscreen()  # headless Qt with the system's fonts; must run before any QApplication
 
 from qt_leaks import collect_and_report_live_qt_garbage  # noqa: E402
 

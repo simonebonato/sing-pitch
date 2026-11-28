@@ -145,8 +145,8 @@ def sing_looped(tmp_path, passes, speed=1.0, section=SECTION, expect_shown=0):
             backing.on_event(pending.pop(0))
         mic.on_chunk(np.zeros(CHUNK, np.float32))
         fed += CHUNK
-    shown, deadline = [], time.monotonic() + 5.0       # before Stop: what the UI timer would have picked up
-    while time.monotonic() < deadline and len(shown) < expect_shown:
+    shown, deadline = [], time.perf_counter() + 5.0       # before Stop: what the UI timer would have picked up
+    while time.perf_counter() < deadline and len(shown) < expect_shown:
         shown += runner.drain_saved()
         time.sleep(0.01)
     record = runner.stop()

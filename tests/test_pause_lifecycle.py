@@ -162,7 +162,7 @@ def test_space_pauses_a_replay_and_it_goes_on_from_where_it_stood(qtbot, tmp_pat
     world.win.toggle()                                # a saved Take to replay
     win = world.win
     clock = [1000.0]
-    monkeypatch.setattr(main_window, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    monkeypatch.setattr(main_window, "time", SimpleNamespace(perf_counter=lambda: clock[0]))
     win.toggle_replay()
     win._timer.stop()                                 # the test ticks
     assert win.pause_button.isEnabled() and win.pause_button.text() == "Pause"

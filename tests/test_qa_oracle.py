@@ -1,10 +1,11 @@
 """The perfect-singer oracle: the song's own vocals.wav as the fake mic, heard as late as the configured latency,
 must score ~100 % in tune on a whole-song Melody Take through the real window, tracker and Take engine."""
+from app_speed import APP_SPEED
 from qa_helpers import configure_latency, singing_song
 
 from sing_pitch.qa import QA
 
-SCALE = 4.0          # app time runs 4x faster than the wall clock (the tracker keeps up ~12x)
+SCALE = APP_SPEED   # app time runs this much faster than the wall clock (app_speed.py; the tracker keeps up ~12x on a Mac)
 
 
 def whole_song_take(home, song, mic_latency_s):

@@ -4,6 +4,7 @@ import types
 
 import numpy as np
 import pytest
+from app_speed import APP_SPEED
 from qa_helpers import configure_latency
 
 from sing_pitch.playback import BackingPlayer
@@ -84,14 +85,36 @@ def test_the_mic_stamps_each_chunk_with_its_adc_time_keyed_by_samples_delivered(
     chunks = []
     mic.start(chunks.append)
     s, chunk = streams[0], 256 / SR
+    t0 = PORTAUDIO.now()                 # a real device stamps on the host clock, near its now
     for k in range(5):
-        s.block(256, adc=50.0 + k * chunk)
-    s.block(256, adc=50.0 + 7 * chunk, status=Flags(overflow=True))      # chunks 5 and 6 were lost
-    s.block(256, adc=50.0 + 8 * chunk)
+        s.block(256, adc=t0 + k * chunk)
+    s.block(256, adc=t0 + 7 * chunk, status=Flags(overflow=True))      # chunks 5 and 6 were lost
+    s.block(256, adc=t0 + 8 * chunk)
     times = mic.times
     assert len(chunks) == 7 and times.clock is PORTAUDIO
     assert times.glitches == 1 and times.lost_s == pytest.approx(2 * chunk) and times.flagged == 1
-    assert times.host(6 * chunk) == pytest.approx(50.0 + 8 * chunk)      # the 7th chunk delivered was sung 2 later
+    assert times.host(6 * chunk) == pytest.approx(t0 + 8 * chunk)      # the 7th chunk delivered was sung 2 later
+
+
+def test_a_mic_stamp_that_is_no_host_time_is_replaced_by_the_arrival_time(monkeypatch):
+    """Windows MME stamps input chunks a few ms into the buffer instead of on the host clock (measured 2026-11-26:
+    currentTime 0, inputBufferAdcTime 0 / 5.8 / 11.6 ms). Such a stamp is far from the clock's now on any system, so
+    the chunk is stamped as it arrives instead, its last sample captured just then."""
+    streams = []
+    fake_sd = types.SimpleNamespace(InputStream=lambda **kw: streams.append(Stream(**kw)) or streams[-1])
+    monkeypatch.setitem(sys.modules, "sounddevice", fake_sd)
+    from sing_pitch.audio_input import SoundDeviceInput
+
+    mic = SoundDeviceInput(0)
+    mic.start(lambda chunk: None)
+    before = PORTAUDIO.now()
+    for k in range(3):
+        streams[0].block(256, adc=(k % 3) * 256 / SR)                        # MME: 0 (no stamp), 5.3 ms, 10.7 ms
+    after = PORTAUDIO.now()
+    times = mic.times
+    assert len(times) >= 1                                                 # the 0 adds nothing, the others do
+    stamped = times.host(2 * 256 / SR)                                     # the last chunk's first sample
+    assert before - 256 / SR <= stamped <= after
 
 
 @pytest.mark.parametrize("faults", [None, "underflow=1:40"])
@@ -99,7 +122,7 @@ def test_calibration_finds_the_latency_even_when_blocks_are_lost_during_the_clic
     """The echo mic answers every click 0.12 s after it is played. Lost output blocks delay the clicks that follow
     them; counting frames would add that delay to the latency (about 0.17 s more, here)."""
     configure_latency(tmp_path, 0.12)
-    with QA(tmp_path, mic="echo", time_scale=4.0, faults=faults) as qa:
+    with QA(tmp_path, mic="echo", time_scale=APP_SPEED, faults=faults) as qa:
         qa.click("calibrate_button")
         qa.wait_until(lambda: qa.window._calibration is None, timeout_s=60)
         assert "Latency for" in qa.summary(), qa.summary()

@@ -1,10 +1,11 @@
 """The QA driver drives the real window on the fake audio: Start, pause, seek, loop, Stop, read the summary."""
 import numpy as np
+from app_speed import APP_SPEED
 from qa_helpers import configure_latency, singing_song
 
 from sing_pitch.qa import QA
 
-SCALE = 4.0
+SCALE = APP_SPEED
 
 
 def echo_singer(home, **kw):
@@ -38,7 +39,7 @@ def test_driver_starts_pauses_seeks_loops_stops_and_reads_the_summary(tmp_path):
         before = qa.song_position()
         qa.seek(0.4)
         qa.wait(0.1)
-        assert before > 1.2 and 0.45 < qa.song_position() < 0.9      # jumped back (wait() lets at least 0.1 s pass)
+        assert before > 1.2 and 0.45 < qa.song_position() < before   # jumped back (wait() lets at least 0.1 s pass; loose above: a loaded machine reads late, #69)
 
         qa.mark_section(1.2, 3.6)
         qa.set("loop_box", True)

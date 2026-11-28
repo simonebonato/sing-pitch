@@ -1202,6 +1202,7 @@ version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
+    { name = "platformdirs" },
     { name = "pylibrb" },
     { name = "pyqtgraph" },
     { name = "pyside6-essentials" },
@@ -1230,6 +1231,7 @@ requires-dist = [
     { name = "audio-separator", extras = ["cpu"], marker = "extra == 'import'", specifier = "==0.48.0" },
     { name = "audioread", marker = "extra == 'import'", specifier = ">=3.0" },
     { name = "numpy", specifier = ">=2.0" },
+    { name = "platformdirs", specifier = ">=4" },
     { name = "pylibrb", specifier = "==0.1.2" },
     { name = "pyqtgraph", specifier = "==0.14.0" },
     { name = "pyside6-essentials", specifier = "==6.12.0" },

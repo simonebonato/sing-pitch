@@ -1,11 +1,10 @@
 """The fake hardware's faults (#49) do what a real device does under load, and its timestamps tell the truth."""
-import ctypes
 import time
 
 import numpy as np
 import pytest
 
-from sing_pitch.testmode import FakeAudioHub, FakeMic, Faults, parse_flags
+from sing_pitch.testmode import FakeAudioHub, FakeMic, Faults, hold_the_gil, parse_flags
 
 SR, STEP = 48000, 256
 
@@ -85,10 +84,6 @@ def test_drift_makes_the_output_play_more_frames_than_the_mic_hears():
     f = np.array([d[0] for d in dacs], float)
     t = np.array([d[1] for d in dacs])
     assert np.polyfit(t, f / SR, 1)[0] == pytest.approx(1.002, abs=1e-5)       # the DAC times say so too
-
-
-def hold_the_gil(ms):
-    ctypes.PyDLL(None).usleep(int(ms * 1000))
 
 
 def test_a_deadline_turns_a_held_gil_into_lost_blocks_on_both_sides():

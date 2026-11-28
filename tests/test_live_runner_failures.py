@@ -59,9 +59,9 @@ def tracker_threads():
 def test_a_crash_in_the_worker_surfaces_from_drain_and_from_stop(tmp_path):
     runner = LiveRunner(ArrayInput(quiet(0.5), SR, 256), CrashingTracker(), NearestNote(), tmp_path)
     runner.start()
-    deadline = time.monotonic() + 3
+    deadline = time.perf_counter() + 3
     with pytest.raises(RuntimeError, match="tracker blew up"):
-        while time.monotonic() < deadline:
+        while time.perf_counter() < deadline:
             runner.drain()
             time.sleep(0.01)
     with pytest.raises(RuntimeError, match="tracker blew up"):

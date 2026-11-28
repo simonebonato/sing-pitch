@@ -10,11 +10,13 @@ are further off. Every attempt (a **Take**) is scored and saved, so you can watc
 
 ![A Take in progress: the voice (dots) on the song's melody (blue bars)](docs/screenshots/take.png)
 
-It runs on a Mac and everything stays on your Mac: the songs you import, your recordings' scores and your settings.
+It runs on a Mac or a Windows PC, and everything stays on your computer: the songs you import, your recordings'
+scores and your settings.
 
 ## What you need
 
-- **A Mac.** Tested on an Apple Silicon Mac with macOS 26. Intel Macs, Windows and Linux are not supported.
+- **A Mac or a Windows PC.** Tested on an Apple Silicon Mac with macOS 26 and on a Windows 11 laptop. Intel Macs and
+  Linux are not tested. On Windows, see [Install on Windows](#install-on-windows).
 - **Headphones.** The song must go to your ears only. Through speakers, the microphone hears the song as well as you.
   Wired headphones are best. Bluetooth earbuds work once you calibrate them (see [Calibrate your headphones](#calibrate-your-headphones)).
 - **A microphone.** The Mac's built-in one is fine. A Blue Yeti is picked automatically when it is plugged in.
@@ -68,6 +70,28 @@ From now on, step 5 is the only one you need. To get the newest version later:
 ```
 cd ~/sing-pitch && git pull && uv sync --extra import
 ```
+
+### Install on Windows
+
+Open **PowerShell** (Start menu, type "PowerShell", Enter) and paste each line below. `winget` comes with Windows 11.
+
+```
+winget install --id astral-sh.uv -e
+winget install --id Gyan.FFmpeg -e
+winget install --id Git.Git -e
+```
+
+Close PowerShell and open it again (so it finds the new tools), then:
+
+```
+cd ~; git clone https://github.com/simonebonato/sing-pitch.git
+cd ~/sing-pitch; uv sync --extra import
+cd ~/sing-pitch; uv run sing-pitch
+```
+
+The commands in the rest of this page work the same in PowerShell. If Windows asks whether Python may use the
+microphone, allow it (Settings → Privacy & security → Microphone). The app uses Windows' WASAPI audio, so each
+device appears once in the Input and Output boxes; see [`docs/cross-platform.md`](docs/cross-platform.md).
 
 ## Add a song
 
@@ -175,15 +199,15 @@ a space. Press Enter or Esc to give the keys back to the app.
 
 ## Where your data lives
 
-Everything is in `~/Library/Application Support/sing-pitch/`: `songs/` (imported songs), `takes.csv` and `takes/`
-(your Takes), `models/` (the sound models) and `settings.json`. To remove the app completely, delete that folder and
-the `~/sing-pitch` folder.
+Everything is in `~/Library/Application Support/sing-pitch/` (on Windows `%APPDATA%\sing-pitch\`): `songs/`
+(imported songs), `takes.csv` and `takes/` (your Takes), `models/` (the sound models) and `settings.json`. To remove
+the app completely, delete that folder and the `~/sing-pitch` folder.
 
 ## For developers
 
 ```
 uv sync --extra import
-uv run pytest                 # the fast tests: no microphone or speakers needed
+uv run pytest                 # the fast tests: no microphone or speakers needed (they also run without --extra import)
 uv run pytest -m slow         # opt-in: the real separator and RMVPE on a generated clip (~1 min)
 QT_QPA_PLATFORM=offscreen uv run sing-pitch --smoke    # starts and closes the window without a screen
 ```
@@ -191,6 +215,9 @@ QT_QPA_PLATFORM=offscreen uv run sing-pitch --smoke    # starts and closes the w
 - How it works: [`docs/spec.md`](docs/spec.md) and [`docs/spec-practice-controls.md`](docs/spec-practice-controls.md).
 - The words used in the code, issues and commits: [`CONTEXT.md`](CONTEXT.md).
 - `SING_PITCH_HOME` sets another data folder, `SING_PITCH_MODELS` another models folder.
+- `SING_PITCH_TEST_SPEED` sets how much faster than real time the window tests run the app (default 4; CI uses 1).
+- macOS and Windows share one code path: [`docs/cross-platform.md`](docs/cross-platform.md). CI runs the fast tests on
+  both (`.github/workflows/tests.yml`).
 - `uv run sing-pitch import "/path/to/Logic stems folder"` imports a folder with a Vocals file and other stems
   without separating them; `--model` picks another separator model.
 - Pinned: Python 3.12, pyqtgraph 0.14.0, pyside6-essentials 6.12.0.

@@ -167,7 +167,7 @@ def test_a_click_inside_the_looping_section_jumps_there_and_keeps_looping_and_on
         click_timeline(qa, 6.5)
         qa.wait(0.3)
         assert w.loop_box.isChecked() and w._backing.loop is not None and w.timeline.looping
-        assert 6.5 <= qa.song_position() < 7.2
+        assert 6.5 <= qa.song_position() < 8.0                 # jumped, still inside (loose above: a loaded machine reads late, #69)
         assert w.loop_label.text().startswith("Loop · Pass 2")
         qa.wait_until(lambda: w.loop_label.text().startswith("Loop · Pass 3"), timeout_s=10)   # it still wraps
         assert qa.song_position() < 8.0

@@ -258,7 +258,7 @@ class MainWindow(QtWidgets.QWidget):
         self._drone: DronePlayer | None = None
         self._backing_factory = backing_factory
         self._backing: Playback | None = None
-        self._playhead_hold = (0.0, 0.0)               # (song time, monotonic until): see _playhead_heard
+        self._playhead_hold = (0.0, 0.0)               # (song time, perf_counter until): see _playhead_heard
         self._health_ui = audio_health.UiStats()     # tick times and size changes of the running Take
         self._output_info = output_info                  # the system default output: (name, kind)
         self._input_devices, self._output_devices, self._output_kind_of = input_devices, output_devices, output_kind_of
@@ -294,7 +294,7 @@ class MainWindow(QtWidgets.QWidget):
         self._unpaused_text = "Singing..."           # what the status line said before the pause text replaced it
         self._speed_hint = ""                        # the "70 % from the next Pass" text on show, if any
         self._hint_under = ""                        # ... and before the text-field hint did
-        self._replay_paused_at: float | None = None  # monotonic time a replay was paused at (None = running)
+        self._replay_paused_at: float | None = None  # perf_counter time a replay was paused at (None = running)
         self._runner: LiveRunner | None = None
         self._replay: Replay | None = None
         self._visited: dict | None = None            # the controls as they were before a replay put a Take's on them
@@ -894,7 +894,7 @@ class MainWindow(QtWidgets.QWidget):
         if not inside:                                 # Pass starts there
             self._set_loop_box(False)
         self.timeline.set_playhead(song_s)
-        self._playhead_hold = (float(song_s), time.monotonic() + PLAYHEAD_HOLD_S)
+        self._playhead_hold = (float(song_s), time.perf_counter() + PLAYHEAD_HOLD_S)
         self._show_loop()
 
     # --- Sections and the loop ---------------------------------------------------------------------------------
@@ -1294,7 +1294,7 @@ class MainWindow(QtWidgets.QWidget):
                 self.summary_label.setText(self._hint_under)
 
     def _toggle_replay_pause(self) -> None:
-        now = time.monotonic()
+        now = time.perf_counter()
         if self._replay_paused_at is None:
             self._replay_paused_at = now
         else:
@@ -1303,7 +1303,7 @@ class MainWindow(QtWidgets.QWidget):
 
     def _replay_elapsed(self) -> float:
         """Seconds of the replayed Take shown so far: standing still while it is paused."""
-        return (time.monotonic() if self._replay_paused_at is None else self._replay_paused_at) - self._replay_started
+        return (time.perf_counter() if self._replay_paused_at is None else self._replay_paused_at) - self._replay_started
 
     def _apply_gains(self, *_) -> None:
         """Slider and checkbox changes reach the player at once, also mid-Take; it ramps them within a block."""
@@ -1666,7 +1666,7 @@ class MainWindow(QtWidgets.QWidget):
             w.setEnabled(False)
         self._replay, self._replay_clock, self._replay_take_id = replay, replay_clock, take_id
         self._replay_tolerance = config.green_cents
-        self._replay_started, self._replay_paused_at = time.monotonic(), None
+        self._replay_started, self._replay_paused_at = time.perf_counter(), None
         self.pause_button.setEnabled(True)               # Space pauses a replay too
         self._show_pause()
         self._show_melody(reference, latency, octave_k)
@@ -2276,7 +2276,7 @@ class MainWindow(QtWidgets.QWidget):
         PLAYHEAD_HOLD_S), so it does not step back and forth."""
         target, until = self._playhead_hold
         song = float(self._song_times(np.array([now]), fold)[0])
-        if until and time.monotonic() < until and not target - PLAYHEAD_NEAR_S <= song <= target + 1.0:
+        if until and time.perf_counter() < until and not target - PLAYHEAD_NEAR_S <= song <= target + 1.0:
             self.timeline.set_playhead(target)       # the jump is not heard yet
             return
         self._playhead_hold = (0.0, 0.0)

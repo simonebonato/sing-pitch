@@ -134,8 +134,8 @@ def sing(tmp_path, seconds, acts, start_gains=(1.0, 0.0), loop=True):
             backing.on_event(pending.pop(0))
         mic.on_chunk(np.zeros(CHUNK, np.float32))
         fed += CHUNK
-    deadline = time.monotonic() + 5.0
-    while time.monotonic() < deadline and len(runner._saved) < 1:
+    deadline = time.perf_counter() + 5.0
+    while time.perf_counter() < deadline and len(runner._saved) < 1:
         time.sleep(0.01)
     runner.stop()
     return [(r["pass_index"], r["guide_vocal"], r["guide_gain"], r["speed_pct"])

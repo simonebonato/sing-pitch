@@ -14,7 +14,6 @@ clock, which runs at time_scale x the wall clock."""
 from __future__ import annotations
 
 import csv
-import os
 import time
 from pathlib import Path
 from typing import Callable
@@ -25,7 +24,9 @@ DEFAULT_TIMEOUT_S = 30.0
 
 
 def _app():
-    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")     # before the first QApplication
+    from .offscreen import use_offscreen
+
+    use_offscreen()                                            # before the first QApplication
     from PySide6 import QtWidgets
 
     return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])

@@ -1,13 +1,14 @@
 """#64: keyboard focus is never left parked in a field where Space or the arrows would be swallowed, so "I pressed Space
 and the song kept playing" cannot come from the keyboard. Real mouse and key events through the QA driver."""
 import pytest
+from app_speed import APP_SPEED
 from pause_fuzz import build_song
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtTest import QTest
 
 from sing_pitch.qa import QA
 
-SCALE = 4.0
+SCALE = APP_SPEED
 
 
 @pytest.fixture

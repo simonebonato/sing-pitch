@@ -1,6 +1,7 @@
 """#50 round 2: the tester saw "song position moved while paused" after saving or choosing a Section. Saving a Section
 that is looping only names it: the song, paused or not, stays where it is and the Pass goes on. Choosing another
 Section while looping moves the song on purpose (the new Section's Lead-in)."""
+from app_speed import APP_SPEED
 from pause_fuzz import build_song
 
 from sing_pitch.qa import QA
@@ -8,7 +9,7 @@ from sing_pitch.qa import QA
 
 def test_saving_the_looping_unsaved_mark_does_not_move_the_paused_song_or_restart_the_pass(tmp_path):
     build_song(tmp_path)
-    with QA(tmp_path, mic="echo", time_scale=4.0) as qa:
+    with QA(tmp_path, mic="echo", time_scale=APP_SPEED) as qa:
         qa.set("reference_box", "Melody")
         qa.mark_section(10.0, 14.0)
         qa.set("loop_box", True)
@@ -31,7 +32,7 @@ def test_saving_the_looping_unsaved_mark_does_not_move_the_paused_song_or_restar
 
 def test_choosing_another_section_while_looping_moves_the_song_to_its_lead_in_on_purpose(tmp_path):
     build_song(tmp_path)
-    with QA(tmp_path, mic="echo", time_scale=4.0) as qa:
+    with QA(tmp_path, mic="echo", time_scale=APP_SPEED) as qa:
         qa.set("reference_box", "Melody")
         qa.mark_section(10.0, 14.0)
         qa.set("section_name_edit", "Hook")

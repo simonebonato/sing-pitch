@@ -11,10 +11,10 @@ SR, STEP = 48000, 256
 def test_the_clock_runs_at_time_scale_times_the_wall_clock():
     hub = FakeAudioHub(time_scale=2.0)
     try:
-        t0, a0 = time.monotonic(), hub.now_s
+        t0, a0 = time.perf_counter(), hub.now_s
         time.sleep(0.5)
         elapsed = hub.now_s - a0
-        assert abs(elapsed - 2.0 * (time.monotonic() - t0)) < 0.1
+        assert abs(elapsed - 2.0 * (time.perf_counter() - t0)) < 0.1
     finally:
         hub.close()
 

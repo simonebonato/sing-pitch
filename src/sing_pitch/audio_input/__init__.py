@@ -7,6 +7,7 @@ import numpy as np
 
 from ..config import BLOCKSIZE, SAMPLE_RATE
 
+PLAUSIBLE_STAMP_S = 1.0   # a chunk's ADC stamp further than this from the clock's now is no stamp at all
 VIRTUAL_HINTS = ("blackhole", "background music", "aggregate", "multi-output", "zoom", "teams")
 
 
@@ -38,7 +39,9 @@ def pick_input(devices: Sequence[dict]) -> int | None:
 def list_inputs() -> list[dict]:
     import sounddevice as sd
 
-    return [dict(d) for d in sd.query_devices() if d["max_input_channels"] > 0]
+    from ..audio_backend import devices_of_host_api
+
+    return [dict(d) for d in devices_of_host_api(sd.query_devices()) if d["max_input_channels"] > 0]
 
 
 class SoundDeviceInput:
@@ -59,6 +62,7 @@ class SoundDeviceInput:
     def start(self, on_chunk: Callable[[np.ndarray], None]) -> None:
         import sounddevice as sd
 
+        from ..audio_backend import stream_options
         from ..take_engine import StreamTimeline
 
         times = self.times = StreamTimeline()
@@ -70,6 +74,11 @@ class SoundDeviceInput:
             if status and status.input_overflow:
                 times.flagged += 1
             adc = time_info.inputBufferAdcTime if time_info is not None else 0.0
+            now = times.clock.now()
+            if adc > 0 and abs(adc - now) > PLAUSIBLE_STAMP_S:
+                # Not a time on the host clock (Windows MME: currentTime 0, adc a few ms into the buffer; measured
+                # 2026-11-26): stamp the chunk as it arrives, its last sample captured just now.
+                adc = now - frames / rate
             if adc > 0:                    # 0: the driver had no timestamp for this block
                 times.add(received / rate, adc, frames)
             received += frames
@@ -77,7 +86,7 @@ class SoundDeviceInput:
 
         self._stream = sd.InputStream(
             device=self.device_index, channels=1, samplerate=self.sample_rate, blocksize=self._blocksize,
-            dtype="float32", latency="low", callback=callback,
+            dtype="float32", latency="low", callback=callback, **stream_options(self.device_index),
         )
         self._stream.start()
         self._latency = float(getattr(self._stream, "latency", 0.0) or 0.0)

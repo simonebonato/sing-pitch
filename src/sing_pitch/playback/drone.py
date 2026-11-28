@@ -60,7 +60,9 @@ class Drone:
 def _open_output(**kwargs):
     import sounddevice as sd
 
-    return sd.OutputStream(**kwargs)
+    from ..audio_backend import stream_options
+
+    return sd.OutputStream(**stream_options(kwargs.get("device")), **kwargs)
 
 
 class DronePlayer:
@@ -98,8 +100,8 @@ class DronePlayer:
         stream, drone = self._stream, self._drone
         self._stream = self._drone = None
         drone.release()
-        deadline = time.monotonic() + 2 * RELEASE_S      # let the callback play the fade-out
-        while drone.sounding and time.monotonic() < deadline:
+        deadline = time.perf_counter() + 2 * RELEASE_S      # let the callback play the fade-out
+        while drone.sounding and time.perf_counter() < deadline:
             time.sleep(0.005)
         try:
             stream.stop()

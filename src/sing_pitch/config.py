@@ -68,7 +68,10 @@ def data_dir() -> Path:
     override = os.environ.get("SING_PITCH_HOME")
     if override:
         return Path(override)
-    return Path.home() / "Library" / "Application Support" / "sing-pitch"
+    from platformdirs import user_data_dir
+
+    # macOS: ~/Library/Application Support/sing-pitch (where it always was); Windows: %APPDATA%\sing-pitch
+    return Path(user_data_dir("sing-pitch", appauthor=False, roaming=True))
 
 
 def models_dir() -> Path:

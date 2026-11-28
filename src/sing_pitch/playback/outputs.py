@@ -46,13 +46,18 @@ def output_devices(devices) -> list[dict]:
 def list_outputs() -> list[dict]:
     import sounddevice as sd
 
-    return output_devices(sd.query_devices())
+    from ..audio_backend import devices_of_host_api
+
+    return output_devices(devices_of_host_api(sd.query_devices()))
 
 
 def default_output_name() -> str | None:
     try:
         import sounddevice as sd
 
+        from ..audio_backend import host_api
+
+        host_api()                        # the default device of the chosen host API
         return sd.query_devices(kind="output")["name"]
     except Exception:
         return None

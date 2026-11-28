@@ -8,6 +8,7 @@ import pytest
 from audio import SR, quiet
 from melody_helpers import library_song, reference_line
 from PySide6 import QtWidgets
+from app_speed import APP_SPEED
 from qa_helpers import configure_latency, singing_song
 from test_melody_window import window
 
@@ -272,7 +273,7 @@ def test_the_latency_is_stored_for_the_output_that_was_measured(qtbot, tmp_path)
 def test_the_timeline_playhead_follows_the_replayed_song_time(tmp_path):
     singing_song(tmp_path, tail_s=3.0)
     configure_latency(tmp_path, 0.12)
-    with QA(tmp_path, mic="echo", time_scale=4.0) as qa:
+    with QA(tmp_path, mic="echo", time_scale=APP_SPEED) as qa:
         qa.set("reference_box", "Melody")
         qa.set("guide_box", True)
         qa.set("backing_slider", 0)
@@ -284,8 +285,8 @@ def test_the_timeline_playhead_follows_the_replayed_song_time(tmp_path):
         qa.click("replay_button")
         seen = []
         for wall_s in (0.3, 0.8):
-            until = time.monotonic() + wall_s
-            qa.wait_until(lambda: time.monotonic() >= until)
+            until = time.perf_counter() + wall_s
+            qa.wait_until(lambda: time.perf_counter() >= until)
             seen.append(qa.window.timeline.playhead_s)
         assert 0.3 < seen[0] < seen[1] < taken_to - 0.5       # moving from where the Take began, not stuck at its end
 
